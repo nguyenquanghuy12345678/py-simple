@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🥊 Boxing Online - PvP</title>
+    <title>🥊 Boxing Online - Multiplayer</title>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -18,7 +19,6 @@
             min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: 'Arial Black', sans-serif;
-            overflow: hidden;
         }
         
         #gameContainer {
@@ -30,11 +30,111 @@
             border: 5px solid #ffd700;
             border-radius: 10px;
             box-shadow: 0 15px 50px rgba(0,0,0,0.8);
+            display: none;
+        }
+        
+        /* LOBBY */
+        .lobby {
+            background: linear-gradient(135deg, #1a1a2e, #2d0a0a);
+            padding: 50px;
+            border-radius: 20px;
+            border: 5px solid #ffd700;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+        }
+        
+        .lobby h1 {
+            font-size: 48px;
+            color: #ffd700;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+        }
+        
+        .lobby .subtitle {
+            color: #95a5a6;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .lobby input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 3px solid #ffd700;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            background: rgba(255,255,255,0.95);
+            font-weight: bold;
+        }
+        
+        .lobby button {
+            width: 100%;
+            padding: 18px;
+            font-size: 22px;
+            background: linear-gradient(to right, #ffd700, #ffed4e);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 12px;
+            transition: all 0.3s;
+        }
+        
+        .lobby button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(255,215,0,0.6);
+        }
+        
+        .lobby button.secondary {
+            background: linear-gradient(to right, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .lobby .status {
+            color: #ffd700;
+            font-size: 16px;
+            margin-top: 15px;
+            min-height: 50px;
+            padding: 15px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 10px;
+            border: 2px solid rgba(255,215,0,0.3);
+        }
+        
+        .lobby .waiting {
+            color: #3498db;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .lobby .room-id {
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 2px solid #2ecc71;
+        }
+        
+        .lobby .room-id .label {
+            color: #95a5a6;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .lobby .room-id .code {
+            color: #2ecc71;
+            font-size: 24px;
+            font-weight: bold;
+            word-break: break-all;
         }
         
         /* HUD */
         .hud {
-            display: flex;
+            display: none;
             justify-content: space-between;
             margin-bottom: 10px;
             gap: 15px;
@@ -55,17 +155,18 @@
             font-size: 18px;
             margin-bottom: 8px;
             text-transform: uppercase;
-            color: #ffd700;
         }
+        
+        .player1-stats .player-name { color: #4a90e2; }
+        .player2-stats .player-name { color: #e74c3c; }
         
         .hp-bar {
             width: 100%;
-            height: 20px;
-            background: #333;
-            border: 2px solid #fff;
+            height: 25px;
+            background: rgba(0,0,0,0.5);
             border-radius: 5px;
             overflow: hidden;
-            margin-bottom: 5px;
+            border: 2px solid rgba(255,255,255,0.3);
         }
         
         .hp-fill {
@@ -74,331 +175,619 @@
             background: linear-gradient(to right, #2ecc71, #27ae60);
         }
         
-        .stat-text {
+        .hp-text {
             color: white;
-            font-size: 12px;
-            text-shadow: 1px 1px 2px black;
-        }
-        
-        .controls {
-            color: #95a5a6;
-            font-size: 10px;
+            font-size: 14px;
             margin-top: 5px;
-            line-height: 1.4;
         }
         
-        .back-button {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            padding: 10px 20px;
-            background: rgba(0,0,0,0.8);
-            border: 2px solid #ffd700;
+        .back-btn {
+            padding: 12px 25px;
+            background: rgba(231,76,60,0.9);
+            color: white;
+            border: 2px solid white;
             border-radius: 8px;
-            color: #ffd700;
-            text-decoration: none;
+            cursor: pointer;
             font-size: 16px;
+            font-weight: bold;
             transition: all 0.3s;
         }
         
-        .back-button:hover {
-            background: #ffd700;
-            color: #000;
-            transform: scale(1.1);
+        .back-btn:hover {
+            background: #c0392b;
+            transform: scale(1.05);
         }
         
         /* GAME OVER */
         .game-over {
+            display: none;
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: rgba(0,0,0,0.95);
-            padding: 50px 70px;
+            justify-content: center;
+            align-items: center;
+            z-index: 5000;
+        }
+        
+        .game-over-content {
+            text-align: center;
+            background: linear-gradient(135deg, #1a1a2e, #2d0a0a);
+            padding: 50px;
             border-radius: 20px;
             border: 5px solid #ffd700;
-            display: none;
-            z-index: 2000;
-            text-align: center;
         }
         
-        .game-over h1 {
-            font-size: 56px;
+        .game-over h2 {
+            font-size: 64px;
+            color: #ffd700;
             margin-bottom: 20px;
-            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.8);
         }
         
-        .winner1 { color: #4a90e2; }
-        .winner2 { color: #e74c3c; }
+        .game-over .winner {
+            font-size: 32px;
+            color: white;
+            margin-bottom: 30px;
+        }
         
         .game-over button {
-            margin: 10px;
-            padding: 20px 40px;
-            font-size: 20px;
+            padding: 20px 50px;
+            font-size: 24px;
             background: linear-gradient(to right, #ffd700, #ffed4e);
             border: none;
             border-radius: 10px;
             cursor: pointer;
             font-weight: bold;
-            transition: all 0.3s;
+            margin: 0 10px;
         }
         
         .game-over button:hover {
             transform: scale(1.1);
-            box-shadow: 0 10px 30px rgba(255,215,0,0.6);
         }
     </style>
 </head>
 <body>
     <div id="gameContainer">
-        <a href="index.html" class="back-button">← MENU</a>
-        
-        <div class="hud">
-            <div class="player-stats player1-stats">
-                <div class="player-name">🥊 PLAYER 1</div>
-                <div class="hp-bar">
-                    <div class="hp-fill" id="p1Hp" style="width: 100%"></div>
-                </div>
-                <div class="stat-text" id="p1HpText">HP: 100/100</div>
-                <div class="controls">
-                    WASD: Di chuyển | F: Đấm | G: Chặn
-                </div>
+        <!-- LOBBY -->
+        <div class="lobby" id="lobby">
+            <h1>🥊 BOXING ONLINE 🥊</h1>
+            <p class="subtitle">Chơi với bạn bè trên 2 máy khác nhau!</p>
+            
+            <div id="menuScreen">
+                <input type="text" id="playerName" placeholder="Nhập tên của bạn..." maxlength="15" value="Player">
+                <button onclick="createRoom()">🎮 TẠO PHÒNG</button>
+                <button class="secondary" onclick="showJoinScreen()">🌐 VÀO PHÒNG</button>
+                <button class="secondary" onclick="location.href='index.html'">🏠 MENU CHÍNH</button>
             </div>
             
-            <div class="player-stats player2-stats">
-                <div class="player-name">🥊 PLAYER 2</div>
+            <div id="joinScreen" style="display:none;">
+                <input type="text" id="joinRoomId" placeholder="Nhập mã phòng..." maxlength="20">
+                <button onclick="joinRoom()">✅ THAM GIA</button>
+                <button class="secondary" onclick="showMenuScreen()">⬅️ QUAY LẠI</button>
+            </div>
+            
+            <div id="roomScreen" style="display:none;">
+                <div class="room-id">
+                    <div class="label">MÃ PHÒNG (Chia sẻ cho bạn bè):</div>
+                    <div class="code" id="roomCode"></div>
+                </div>
+                <button onclick="copyRoomId()">📋 SAO CHÉP MÃ</button>
+                <button class="secondary" onclick="leaveRoom()">❌ RỜI PHÒNG</button>
+            </div>
+            
+            <div class="status" id="status"></div>
+        </div>
+        
+        <!-- HUD -->
+        <div class="hud">
+            <div class="player-stats player1-stats">
+                <div class="player-name" id="p1Name">PLAYER 1</div>
                 <div class="hp-bar">
-                    <div class="hp-fill" id="p2Hp" style="width: 100%"></div>
+                    <div class="hp-fill" id="p1Hp" style="width: 100%;"></div>
                 </div>
-                <div class="stat-text" id="p2HpText">HP: 100/100</div>
-                <div class="controls">
-                    ↑←↓→: Di chuyển | / : Đấm | . : Chặn
+                <div class="hp-text" id="p1HpText">HP: 100/100</div>
+            </div>
+            
+            <button class="back-btn" onclick="leaveGame()">⬅️ RỜI TRẬN</button>
+            
+            <div class="player-stats player2-stats">
+                <div class="player-name" id="p2Name">PLAYER 2</div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="p2Hp" style="width: 100%;"></div>
                 </div>
+                <div class="hp-text" id="p2HpText">HP: 100/100</div>
             </div>
         </div>
         
+        <!-- CANVAS -->
         <canvas id="gameCanvas" width="900" height="500"></canvas>
+        
+        <!-- GAME OVER -->
+        <div class="game-over" id="gameOver">
+            <div class="game-over-content">
+                <h2>🏆 GAME OVER 🏆</h2>
+                <div class="winner" id="winnerText"></div>
+                <button onclick="playAgain()">🔄 CHƠI LẠI</button>
+                <button onclick="leaveGame()">🏠 MENU</button>
+            </div>
+        </div>
     </div>
     
-    <div class="game-over" id="gameOver">
-        <h1 id="winnerText">PLAYER 1 WINS!</h1>
-        <button onclick="location.reload()">🔄 CHƠI LẠI</button>
-        <button onclick="location.href='index.html'">🏠 MENU</button>
-    </div>
-
     <script>
+        // CANVAS & CONTEXT
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        let gameRunning = true;
-        let keys = {};
+        // PEER CONNECTION
+        let peer = null;
+        let conn = null;
+        let myPeerId = '';
+        let isHost = false;
+        let playerName = '';
+        let opponentName = '';
         
+        // GAME STATE
+        let gameRunning = false;
+        let players = {};
+        let keys = {};
+        let localPlayerKey = '';
+        
+        // FIGHTER CLASS
         class Fighter {
-            constructor(x, color, controls, name) {
+            constructor(x, y, color, controls) {
                 this.x = x;
-                this.y = canvas.height - 100;
-                this.width = 40;
+                this.y = y;
+                this.width = 50;
                 this.height = 80;
                 this.color = color;
-                this.hp = 100;
-                this.maxHp = 100;
                 this.velocityX = 0;
                 this.velocityY = 0;
-                this.speed = 5;
-                this.jumpPower = 15;
-                this.onGround = true;
-                this.facingRight = name === 'p2';
+                this.hp = 100;
+                this.maxHp = 100;
+                this.isJumping = false;
                 this.controls = controls;
-                this.name = name;
-                
-                this.isPunching = false;
-                this.isBlocking = false;
                 this.punchCooldown = 0;
-                this.hitFlash = 0;
+                this.kickCooldown = 0;
+                this.isPunching = false;
+                this.isKicking = false;
+                this.facing = color === '#4a90e2' ? 1 : -1;
             }
             
             update() {
-                if (keys[this.controls.left]) {
-                    this.velocityX = -this.speed;
-                    this.facingRight = false;
-                }
-                if (keys[this.controls.right]) {
-                    this.velocityX = this.speed;
-                    this.facingRight = true;
-                }
-                if (keys[this.controls.up] && this.onGround) {
-                    this.velocityY = -this.jumpPower;
-                    this.onGround = false;
+                // Only local player controls
+                if (this === players[localPlayerKey]) {
+                    // Movement
+                    if (keys[this.controls.left]) this.velocityX = -5;
+                    else if (keys[this.controls.right]) this.velocityX = 5;
+                    else this.velocityX = 0;
+                    
+                    // Jump
+                    if (keys[this.controls.jump] && !this.isJumping) {
+                        this.velocityY = -15;
+                        this.isJumping = true;
+                    }
+                    
+                    // Punch
+                    if (keys[this.controls.punch] && this.punchCooldown === 0) {
+                        this.punch();
+                    }
+                    
+                    // Kick
+                    if (keys[this.controls.kick] && this.kickCooldown === 0) {
+                        this.kick();
+                    }
                 }
                 
-                if (keys[this.controls.punch] && this.punchCooldown === 0) {
-                    this.punch();
-                }
-                
-                this.isBlocking = keys[this.controls.block] && this.onGround;
-                
-                this.velocityY += 0.8;
+                // Physics
+                this.velocityY += 0.8; // gravity
                 this.x += this.velocityX;
                 this.y += this.velocityY;
-                this.velocityX *= 0.8;
                 
-                this.x = Math.max(0, Math.min(this.x, canvas.width - this.width));
-                if (this.y > canvas.height - 100) {
-                    this.y = canvas.height - 100;
+                // Ground collision
+                if (this.y + this.height >= canvas.height - 100) {
+                    this.y = canvas.height - 100 - this.height;
                     this.velocityY = 0;
-                    this.onGround = true;
+                    this.isJumping = false;
                 }
                 
+                // Wall collision
+                if (this.x < 0) this.x = 0;
+                if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+                
+                // Update facing direction
+                if (this.velocityX > 0) this.facing = 1;
+                else if (this.velocityX < 0) this.facing = -1;
+                
+                // Cooldowns
                 if (this.punchCooldown > 0) this.punchCooldown--;
-                if (this.hitFlash > 0) this.hitFlash--;
+                if (this.kickCooldown > 0) this.kickCooldown--;
+                if (this.isPunching && this.punchCooldown === 0) this.isPunching = false;
+                if (this.isKicking && this.kickCooldown === 0) this.isKicking = false;
             }
             
             punch() {
                 this.isPunching = true;
-                this.punchCooldown = 20;
-                setTimeout(() => this.isPunching = false, 200);
+                this.punchCooldown = 30;
+                
+                // Check hit on opponent
+                const opponent = localPlayerKey === 'player1' ? players.player2 : players.player1;
+                if (this.checkHit(opponent, 60)) {
+                    opponent.hp -= 10;
+                    sendGameState();
+                }
             }
             
-            takeDamage(amount) {
-                if (this.isBlocking) amount *= 0.3;
+            kick() {
+                this.isKicking = true;
+                this.kickCooldown = 45;
                 
-                this.hp -= amount;
-                this.hitFlash = 10;
-                
-                if (this.hp <= 0) {
-                    this.hp = 0;
-                    endGame(this.name === 'p1' ? 'p2' : 'p1');
+                // Check hit on opponent
+                const opponent = localPlayerKey === 'player1' ? players.player2 : players.player1;
+                if (this.checkHit(opponent, 80)) {
+                    opponent.hp -= 15;
+                    sendGameState();
                 }
+            }
+            
+            checkHit(target, range) {
+                if (!target) return false;
                 
-                updateStats();
+                const hitboxX = this.x + (this.facing === 1 ? this.width : -range);
+                const hitboxY = this.y;
+                
+                return (
+                    hitboxX < target.x + target.width &&
+                    hitboxX + range > target.x &&
+                    hitboxY < target.y + target.height &&
+                    hitboxY + this.height > target.y
+                );
             }
             
             draw() {
                 ctx.save();
                 
-                if (this.hitFlash > 0) {
-                    ctx.globalAlpha = 0.5;
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(this.x - 5, this.y - 5, this.width + 10, this.height + 10);
-                    ctx.globalAlpha = 1;
-                }
-                
+                // Body
                 ctx.fillStyle = this.color;
                 ctx.fillRect(this.x, this.y, this.width, this.height);
                 
+                // Head
                 ctx.fillStyle = '#ffdbac';
                 ctx.beginPath();
-                ctx.arc(this.x + this.width/2, this.y - 10, 15, 0, Math.PI * 2);
+                ctx.arc(this.x + this.width/2, this.y - 15, 20, 0, Math.PI * 2);
                 ctx.fill();
                 
-                ctx.fillStyle = 'black';
-                ctx.beginPath();
-                ctx.arc(this.x + 13, this.y - 10, 2, 0, Math.PI * 2);
-                ctx.arc(this.x + 23, this.y - 10, 2, 0, Math.PI * 2);
-                ctx.fill();
-                
-                ctx.fillStyle = '#ff0000';
+                // Punch animation
                 if (this.isPunching) {
-                    const punchOffset = this.facingRight ? 50 : -50;
-                    ctx.beginPath();
-                    ctx.arc(this.x + this.width/2 + punchOffset, this.y + 20, 12, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    ctx.strokeStyle = 'yellow';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(this.x + this.width/2 + punchOffset, this.y + 20, 20, 0, Math.PI * 2);
-                    ctx.stroke();
-                } else {
-                    ctx.beginPath();
-                    ctx.arc(this.x + (this.facingRight ? this.width - 5 : 5), this.y + 30, 8, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillStyle = '#ff6b6b';
+                    const punchX = this.x + (this.facing === 1 ? this.width : -40);
+                    ctx.fillRect(punchX, this.y + 20, 40, 15);
                 }
                 
-                if (this.isBlocking) {
-                    ctx.strokeStyle = '#00ffff';
-                    ctx.lineWidth = 4;
-                    ctx.beginPath();
-                    ctx.arc(this.x + this.width/2, this.y + this.height/2, 50, 0, Math.PI * 2);
-                    ctx.stroke();
+                // Kick animation
+                if (this.isKicking) {
+                    ctx.fillStyle = '#ffd93d';
+                    const kickX = this.x + (this.facing === 1 ? this.width : -60);
+                    ctx.fillRect(kickX, this.y + 50, 60, 15);
                 }
                 
                 ctx.restore();
             }
         }
         
-        const player1 = new Fighter(100, '#4a90e2', {
-            left: 'a', right: 'd', up: 'w', punch: 'f', block: 'g'
-        }, 'p1');
-        
-        const player2 = new Fighter(750, '#e74c3c', {
-            left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', 
-            punch: '/', block: '.'
-        }, 'p2');
-        
-        function updateStats() {
-            [player1, player2].forEach((player, i) => {
-                const prefix = i === 0 ? 'p1' : 'p2';
-                const hpPercent = (player.hp / player.maxHp) * 100;
-                
-                document.getElementById(`${prefix}Hp`).style.width = hpPercent + '%';
-                document.getElementById(`${prefix}HpText`).textContent = 
-                    `HP: ${Math.floor(player.hp)}/${player.maxHp}`;
-            });
+        // LOBBY FUNCTIONS
+        function showMenuScreen() {
+            document.getElementById('menuScreen').style.display = 'block';
+            document.getElementById('joinScreen').style.display = 'none';
+            document.getElementById('roomScreen').style.display = 'none';
+            setStatus('');
         }
         
-        function checkPunchCollision(attacker, defender) {
-            if (!attacker.isPunching || attacker.punchCooldown > 10) return;
+        function showJoinScreen() {
+            document.getElementById('menuScreen').style.display = 'none';
+            document.getElementById('joinScreen').style.display = 'block';
+            document.getElementById('roomScreen').style.display = 'none';
+            setStatus('');
+        }
+        
+        function setStatus(msg, isWaiting = false) {
+            const status = document.getElementById('status');
+            status.textContent = msg;
+            status.className = isWaiting ? 'status waiting' : 'status';
+        }
+        
+        function createRoom() {
+            playerName = document.getElementById('playerName').value.trim() || 'Player';
             
-            const distance = Math.abs(attacker.x - defender.x);
-            const yDistance = Math.abs(attacker.y - defender.y);
-            
-            if (distance < 60 && yDistance < 50) {
-                defender.takeDamage(8);
+            if (!peer) {
+                peer = new Peer();
+                
+                peer.on('open', (id) => {
+                    myPeerId = id;
+                    isHost = true;
+                    
+                    document.getElementById('menuScreen').style.display = 'none';
+                    document.getElementById('roomScreen').style.display = 'block';
+                    document.getElementById('roomCode').textContent = id;
+                    setStatus('⏳ Đang chờ đối thủ kết nối...', true);
+                });
+                
+                peer.on('connection', (connection) => {
+                    conn = connection;
+                    setupConnection();
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('Peer error:', err);
+                    setStatus('❌ Lỗi: ' + err.type);
+                });
             }
         }
         
-        function endGame(winner) {
-            gameRunning = false;
-            const winnerText = document.getElementById('winnerText');
-            winnerText.textContent = winner === 'p1' ? '🥊 PLAYER 1 WINS! 🥊' : '🥊 PLAYER 2 WINS! 🥊';
-            winnerText.className = winner === 'p1' ? 'winner1' : 'winner2';
-            document.getElementById('gameOver').style.display = 'block';
+        function joinRoom() {
+            playerName = document.getElementById('playerName').value.trim() || 'Player';
+            const roomId = document.getElementById('joinRoomId').value.trim();
+            
+            if (!roomId) {
+                setStatus('⚠️ Vui lòng nhập mã phòng!');
+                return;
+            }
+            
+            if (!peer) {
+                peer = new Peer();
+                
+                peer.on('open', (id) => {
+                    myPeerId = id;
+                    isHost = false;
+                    
+                    setStatus('🔗 Đang kết nối đến phòng...', true);
+                    conn = peer.connect(roomId);
+                    setupConnection();
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('Peer error:', err);
+                    setStatus('❌ Không thể kết nối: ' + err.type);
+                });
+            }
+        }
+        
+        function setupConnection() {
+            conn.on('open', () => {
+                setStatus('✅ Đã kết nối! Đang khởi động game...', true);
+                
+                // Send player name
+                conn.send({
+                    type: 'playerName',
+                    name: playerName
+                });
+                
+                // Start game after 2 seconds
+                setTimeout(startGame, 2000);
+            });
+            
+            conn.on('data', (data) => {
+                handleData(data);
+            });
+            
+            conn.on('close', () => {
+                setStatus('❌ Đối thủ đã ngắt kết nối!');
+                endGame();
+            });
+            
+            conn.on('error', (err) => {
+                console.error('Connection error:', err);
+                setStatus('❌ Lỗi kết nối!');
+            });
+        }
+        
+        function handleData(data) {
+            if (data.type === 'playerName') {
+                opponentName = data.name;
+            } else if (data.type === 'gameState') {
+                // Update opponent state
+                const opponentKey = localPlayerKey === 'player1' ? 'player2' : 'player1';
+                const opponent = players[opponentKey];
+                if (opponent) {
+                    opponent.x = data.x;
+                    opponent.y = data.y;
+                    opponent.velocityX = data.velocityX;
+                    opponent.velocityY = data.velocityY;
+                    opponent.hp = data.hp;
+                    opponent.isPunching = data.isPunching;
+                    opponent.isKicking = data.isKicking;
+                    opponent.facing = data.facing;
+                }
+                updateStats();
+            } else if (data.type === 'gameOver') {
+                showGameOver(data.winner);
+            }
+        }
+        
+        function sendGameState() {
+            if (!conn || !conn.open) return;
+            
+            const localPlayer = players[localPlayerKey];
+            if (!localPlayer) return;
+            
+            conn.send({
+                type: 'gameState',
+                x: localPlayer.x,
+                y: localPlayer.y,
+                velocityX: localPlayer.velocityX,
+                velocityY: localPlayer.velocityY,
+                hp: localPlayer.hp,
+                isPunching: localPlayer.isPunching,
+                isKicking: localPlayer.isKicking,
+                facing: localPlayer.facing
+            });
+            
+            // Check game over
+            const opponent = localPlayerKey === 'player1' ? players.player2 : players.player1;
+            if (opponent && opponent.hp <= 0) {
+                conn.send({
+                    type: 'gameOver',
+                    winner: playerName
+                });
+                showGameOver(playerName);
+            }
+        }
+        
+        function copyRoomId() {
+            const roomCode = document.getElementById('roomCode').textContent;
+            navigator.clipboard.writeText(roomCode).then(() => {
+                setStatus('✅ Đã sao chép mã phòng!');
+                setTimeout(() => setStatus('⏳ Đang chờ đối thủ kết nối...', true), 2000);
+            });
+        }
+        
+        function leaveRoom() {
+            if (conn) conn.close();
+            if (peer) peer.destroy();
+            peer = null;
+            conn = null;
+            showMenuScreen();
+        }
+        
+        // GAME FUNCTIONS
+        function startGame() {
+            // Hide lobby, show game
+            document.getElementById('lobby').style.display = 'none';
+            document.querySelector('.hud').style.display = 'flex';
+            canvas.style.display = 'block';
+            
+            // Determine local player
+            localPlayerKey = isHost ? 'player1' : 'player2';
+            
+            // Create players
+            players.player1 = new Fighter(100, 200, '#4a90e2', {
+                left: 'a',
+                right: 'd',
+                jump: 'w',
+                punch: 'f',
+                kick: 'g'
+            });
+            
+            players.player2 = new Fighter(750, 200, '#e74c3c', {
+                left: 'arrowleft',
+                right: 'arrowright',
+                jump: 'arrowup',
+                punch: '/',
+                kick: '.'
+            });
+            
+            // Set names
+            document.getElementById('p1Name').textContent = isHost ? playerName : opponentName;
+            document.getElementById('p2Name').textContent = isHost ? opponentName : playerName;
+            
+            gameRunning = true;
+            gameLoop();
         }
         
         function gameLoop() {
             if (!gameRunning) return;
             
+            // Clear canvas
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Draw floor
             ctx.fillStyle = '#8B4513';
             ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
             
-            player1.update();
-            player2.update();
+            // Update and draw players
+            if (players.player1) {
+                players.player1.update();
+                players.player1.draw();
+            }
+            if (players.player2) {
+                players.player2.update();
+                players.player2.draw();
+            }
             
-            checkPunchCollision(player1, player2);
-            checkPunchCollision(player2, player1);
-            
-            player1.draw();
-            player2.draw();
+            // Send state
+            if (gameRunning) {
+                sendGameState();
+            }
             
             requestAnimationFrame(gameLoop);
         }
         
+        function updateStats() {
+            ['player1', 'player2'].forEach((key, i) => {
+                const player = players[key];
+                if (!player) return;
+                
+                const prefix = i === 0 ? 'p1' : 'p2';
+                const hpPercent = Math.max(0, (player.hp / player.maxHp) * 100);
+                
+                document.getElementById(`${prefix}Hp`).style.width = hpPercent + '%';
+                document.getElementById(`${prefix}HpText`).textContent = 
+                    `HP: ${Math.max(0, Math.floor(player.hp))}/${player.maxHp}`;
+            });
+        }
+        
+        function showGameOver(winner) {
+            gameRunning = false;
+            document.getElementById('gameOver').style.display = 'flex';
+            document.getElementById('winnerText').textContent = `${winner} THẮNG!`;
+        }
+        
+        function playAgain() {
+            document.getElementById('gameOver').style.display = 'none';
+            
+            // Reset players
+            if (players.player1) {
+                players.player1.hp = 100;
+                players.player1.x = 100;
+                players.player1.y = 200;
+            }
+            if (players.player2) {
+                players.player2.hp = 100;
+                players.player2.x = 750;
+                players.player2.y = 200;
+            }
+            
+            updateStats();
+            gameRunning = true;
+            gameLoop();
+        }
+        
+        function leaveGame() {
+            gameRunning = false;
+            document.getElementById('gameOver').style.display = 'none';
+            canvas.style.display = 'none';
+            document.querySelector('.hud').style.display = 'none';
+            
+            if (conn) conn.close();
+            if (peer) peer.destroy();
+            peer = null;
+            conn = null;
+            players = {};
+            
+            document.getElementById('lobby').style.display = 'block';
+            showMenuScreen();
+        }
+        
+        function endGame() {
+            gameRunning = false;
+            leaveGame();
+        }
+        
+        // INPUT
         document.addEventListener('keydown', (e) => {
             keys[e.key.toLowerCase()] = true;
-            keys[e.key] = true;
         });
         
         document.addEventListener('keyup', (e) => {
             keys[e.key.toLowerCase()] = false;
-            keys[e.key] = false;
         });
         
-        updateStats();
-        gameLoop();
+        // Initialize
+        console.log('🥊 Boxing Online Ready!');
+        console.log('✅ PeerJS loaded - P2P multiplayer enabled');
     </script>
 </body>
 </html>

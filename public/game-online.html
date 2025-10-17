@@ -509,7 +509,17 @@
                 setStatus('🔄 Đang tạo phòng...', true);
                 
                 peer = new Peer(roomCode, {
-                    debug: 2 // Enable debugging
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:global.stun.twilio.com:3478' }
+                        ]
+                    },
+                    debug: 2
                 });
                 
                 peer.on('open', (id) => {
@@ -556,7 +566,17 @@
                 setStatus('🔄 Đang khởi tạo kết nối...', true);
                 
                 peer = new Peer({
-                    debug: 2 // Enable debugging
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:global.stun.twilio.com:3478' }
+                        ]
+                    },
+                    debug: 2
                 });
                 
                 peer.on('open', (id) => {
@@ -590,35 +610,67 @@
         }
         
         function setupConnection() {
+            if (!conn) {
+                console.error('No connection object!');
+                return;
+            }
+            
+            console.log('Setting up connection...', conn);
+            
             // Add timeout for connection
             const connectionTimeout = setTimeout(() => {
-                setStatus('❌ Hết thời gian kết nối! Vui lòng thử lại.');
+                console.log('Connection timeout!');
+                setStatus('❌ Hết thời gian kết nối! Kiểm tra lại mã phòng.');
                 if (conn) conn.close();
                 if (peer) peer.destroy();
                 peer = null;
                 conn = null;
-            }, 10000); // 10 seconds timeout
+                setTimeout(showMenuScreen, 2000);
+            }, 15000); // 15 seconds timeout
             
             conn.on('open', () => {
                 clearTimeout(connectionTimeout);
-                setStatus('✅ Đã kết nối! Đang khởi động game...', true);
+                console.log('Connection opened!');
+                setStatus('✅ Đã kết nối! Đang trao đổi thông tin...', true);
                 
-                // Send player name
-                conn.send({
-                    type: 'playerName',
-                    name: playerName
-                });
-                
-                // Start game after 2 seconds
-                setTimeout(startGame, 2000);
+                // Send player name immediately
+                setTimeout(() => {
+                    conn.send({
+                        type: 'playerName',
+                        name: playerName
+                    });
+                    
+                    // If we have opponent name, start game
+                    if (opponentName) {
+                        setStatus('✅ Sẵn sàng! Đang khởi động game...', true);
+                        setTimeout(startGame, 2000);
+                    }
+                }, 100);
             });
             
             conn.on('data', (data) => {
+                console.log('Received data:', data);
                 handleData(data);
+                
+                // If this is player name and we haven't started, maybe start now
+                if (data.type === 'playerName' && !gameRunning) {
+                    // Send our name back if we haven't
+                    setTimeout(() => {
+                        conn.send({
+                            type: 'playerName',
+                            name: playerName
+                        });
+                        
+                        // Start game after both players know each other
+                        setStatus('✅ Cả hai đã sẵn sàng! Bắt đầu...', true);
+                        setTimeout(startGame, 2000);
+                    }, 500);
+                }
             });
             
             conn.on('close', () => {
                 clearTimeout(connectionTimeout);
+                console.log('Connection closed');
                 setStatus('❌ Đối thủ đã ngắt kết nối!');
                 endGame();
             });
@@ -626,7 +678,7 @@
             conn.on('error', (err) => {
                 clearTimeout(connectionTimeout);
                 console.error('Connection error:', err);
-                setStatus('❌ Lỗi kết nối! Mã phòng có thể không đúng.');
+                setStatus('❌ Lỗi kết nối: ' + (err.message || err.type));
                 setTimeout(() => {
                     if (peer) peer.destroy();
                     peer = null;

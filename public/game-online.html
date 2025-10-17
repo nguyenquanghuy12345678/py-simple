@@ -127,9 +127,9 @@
         
         .lobby .room-id .code {
             color: #2ecc71;
-            font-size: 72px;
+            font-size: 56px;
             font-weight: bold;
-            letter-spacing: 15px;
+            letter-spacing: 8px;
             text-shadow: 0 0 20px rgba(46,204,113,0.6);
         }
         
@@ -265,7 +265,7 @@
             </div>
             
             <div id="joinScreen" style="display:none;">
-                <input type="number" id="joinRoomId" placeholder="Nhập mã 3 số (VD: 123)" maxlength="3" min="100" max="999" pattern="[0-9]{3}">
+                <input type="number" id="joinRoomId" placeholder="Nhập mã 6 số (VD: 123456)" maxlength="6" min="100000" max="999999" pattern="[0-9]{6}">
                 <button onclick="joinRoom()">✅ THAM GIA</button>
                 <button class="secondary" onclick="showMenuScreen()">⬅️ QUAY LẠI</button>
             </div>
@@ -503,8 +503,8 @@
             playerName = document.getElementById('playerName').value.trim() || 'Player';
             
             if (!peer) {
-                // Generate 3-digit room code
-                const roomCode = Math.floor(100 + Math.random() * 900).toString();
+                // Generate 6-digit room code
+                const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
                 
                 peer = new Peer(roomCode);
                 
@@ -539,9 +539,9 @@
                 return;
             }
             
-            // Validate 3-digit code
-            if (!/^\d{3}$/.test(roomId)) {
-                setStatus('⚠️ Mã phòng phải là 3 chữ số (VD: 123)');
+            // Validate 6-digit code
+            if (!/^\d{6}$/.test(roomId)) {
+                setStatus('⚠️ Mã phòng phải là 6 chữ số (VD: 123456)');
                 return;
             }
             

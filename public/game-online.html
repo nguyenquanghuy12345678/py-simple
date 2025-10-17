@@ -506,7 +506,11 @@
                 // Generate 6-digit room code
                 const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
                 
-                peer = new Peer(roomCode);
+                setStatus('🔄 Đang tạo phòng...', true);
+                
+                peer = new Peer(roomCode, {
+                    debug: 2 // Enable debugging
+                });
                 
                 peer.on('open', (id) => {
                     myPeerId = id;
@@ -520,12 +524,15 @@
                 
                 peer.on('connection', (connection) => {
                     conn = connection;
+                    setStatus('✅ Đối thủ đã kết nối! Đang chuẩn bị...', true);
                     setupConnection();
                 });
                 
                 peer.on('error', (err) => {
                     console.error('Peer error:', err);
-                    setStatus('❌ Lỗi: ' + err.type);
+                    setStatus('❌ Lỗi tạo phòng: ' + err.type + ' - Thử lại!');
+                    peer = null;
+                    setTimeout(showMenuScreen, 3000);
                 });
             }
         }
@@ -546,26 +553,54 @@
             }
             
             if (!peer) {
-                peer = new Peer();
+                setStatus('🔄 Đang khởi tạo kết nối...', true);
+                
+                peer = new Peer({
+                    debug: 2 // Enable debugging
+                });
                 
                 peer.on('open', (id) => {
                     myPeerId = id;
                     isHost = false;
                     
-                    setStatus('🔗 Đang kết nối đến phòng...', true);
-                    conn = peer.connect(roomId);
+                    setStatus('🔗 Đang kết nối đến phòng ' + roomId + '...', true);
+                    
+                    // Connect with retry logic
+                    conn = peer.connect(roomId, {
+                        reliable: true
+                    });
+                    
+                    if (!conn) {
+                        setStatus('❌ Không thể tạo kết nối! Kiểm tra mã phòng.');
+                        peer.destroy();
+                        peer = null;
+                        return;
+                    }
+                    
                     setupConnection();
                 });
                 
                 peer.on('error', (err) => {
                     console.error('Peer error:', err);
-                    setStatus('❌ Không thể kết nối: ' + err.type);
+                    setStatus('❌ Lỗi: ' + err.type + ' - Kiểm tra mã phòng!');
+                    peer = null;
+                    setTimeout(showMenuScreen, 3000);
                 });
             }
         }
         
         function setupConnection() {
+            // Add timeout for connection
+            const connectionTimeout = setTimeout(() => {
+                setStatus('❌ Hết thời gian kết nối! Vui lòng thử lại.');
+                if (conn) conn.close();
+                if (peer) peer.destroy();
+                peer = null;
+                conn = null;
+            }, 10000); // 10 seconds timeout
+            
             conn.on('open', () => {
+                clearTimeout(connectionTimeout);
                 setStatus('✅ Đã kết nối! Đang khởi động game...', true);
                 
                 // Send player name
@@ -583,13 +618,21 @@
             });
             
             conn.on('close', () => {
+                clearTimeout(connectionTimeout);
                 setStatus('❌ Đối thủ đã ngắt kết nối!');
                 endGame();
             });
             
             conn.on('error', (err) => {
+                clearTimeout(connectionTimeout);
                 console.error('Connection error:', err);
-                setStatus('❌ Lỗi kết nối!');
+                setStatus('❌ Lỗi kết nối! Mã phòng có thể không đúng.');
+                setTimeout(() => {
+                    if (peer) peer.destroy();
+                    peer = null;
+                    conn = null;
+                    showMenuScreen();
+                }, 3000);
             });
         }
         

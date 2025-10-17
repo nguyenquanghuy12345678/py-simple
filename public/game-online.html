@@ -121,15 +121,16 @@
         
         .lobby .room-id .label {
             color: #95a5a6;
-            font-size: 14px;
-            margin-bottom: 5px;
+            font-size: 16px;
+            margin-bottom: 10px;
         }
         
         .lobby .room-id .code {
             color: #2ecc71;
-            font-size: 24px;
+            font-size: 72px;
             font-weight: bold;
-            word-break: break-all;
+            letter-spacing: 15px;
+            text-shadow: 0 0 20px rgba(46,204,113,0.6);
         }
         
         /* HUD */
@@ -264,7 +265,7 @@
             </div>
             
             <div id="joinScreen" style="display:none;">
-                <input type="text" id="joinRoomId" placeholder="Nhập mã phòng..." maxlength="20">
+                <input type="number" id="joinRoomId" placeholder="Nhập mã 3 số (VD: 123)" maxlength="3" min="100" max="999" pattern="[0-9]{3}">
                 <button onclick="joinRoom()">✅ THAM GIA</button>
                 <button class="secondary" onclick="showMenuScreen()">⬅️ QUAY LẠI</button>
             </div>
@@ -502,7 +503,10 @@
             playerName = document.getElementById('playerName').value.trim() || 'Player';
             
             if (!peer) {
-                peer = new Peer();
+                // Generate 3-digit room code
+                const roomCode = Math.floor(100 + Math.random() * 900).toString();
+                
+                peer = new Peer(roomCode);
                 
                 peer.on('open', (id) => {
                     myPeerId = id;
@@ -532,6 +536,12 @@
             
             if (!roomId) {
                 setStatus('⚠️ Vui lòng nhập mã phòng!');
+                return;
+            }
+            
+            // Validate 3-digit code
+            if (!/^\d{3}$/.test(roomId)) {
+                setStatus('⚠️ Mã phòng phải là 3 chữ số (VD: 123)');
                 return;
             }
             

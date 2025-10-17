@@ -255,7 +255,7 @@
         <!-- LOBBY -->
         <div class="lobby" id="lobby">
             <h1>🥊 BOXING ONLINE 🥊</h1>
-            <p class="subtitle">Chơi với bạn bè trên 2 máy khác nhau!</p>
+            <p class="subtitle">Chơi với bạn bè trên 2 máy khác nhau!<br>Shift/Space = Block | Combo x3+ = Bonus DMG</p>
             
             <div id="menuScreen">
                 <input type="text" id="playerName" placeholder="Nhập tên của bạn..." maxlength="15" value="Player">
@@ -290,6 +290,10 @@
                     <div class="hp-fill" id="p1Hp" style="width: 100%;"></div>
                 </div>
                 <div class="hp-text" id="p1HpText">HP: 100/100</div>
+                <div class="hp-bar" style="height: 15px; margin-top: 5px;">
+                    <div class="hp-fill" id="p1Stamina" style="width: 100%; background: linear-gradient(to right, #f39c12, #e67e22);"></div>
+                </div>
+                <div class="hp-text" style="font-size: 12px;" id="p1StaminaText">Stamina: 100</div>
             </div>
             
             <button class="back-btn" onclick="leaveGame()">⬅️ RỜI TRẬN</button>
@@ -300,6 +304,10 @@
                     <div class="hp-fill" id="p2Hp" style="width: 100%;"></div>
                 </div>
                 <div class="hp-text" id="p2HpText">HP: 100/100</div>
+                <div class="hp-bar" style="height: 15px; margin-top: 5px;">
+                    <div class="hp-fill" id="p2Stamina" style="width: 100%; background: linear-gradient(to right, #f39c12, #e67e22);"></div>
+                </div>
+                <div class="hp-text" style="font-size: 12px;" id="p2StaminaText">Stamina: 100</div>
             </div>
         </div>
         
@@ -348,13 +356,20 @@
                 this.velocityY = 0;
                 this.hp = 100;
                 this.maxHp = 100;
+                this.stamina = 100;
+                this.maxStamina = 100;
                 this.isJumping = false;
                 this.controls = controls;
                 this.punchCooldown = 0;
                 this.kickCooldown = 0;
+                this.blockCooldown = 0;
                 this.isPunching = false;
                 this.isKicking = false;
+                this.isBlocking = false;
                 this.facing = color === '#4a90e2' ? 1 : -1;
+                this.combo = 0;
+                this.lastHitTime = 0;
+                this.wins = 0;
             }
             
             update() {
@@ -366,21 +381,36 @@
                     else this.velocityX = 0;
                     
                     // Jump
-                    if (keys[this.controls.jump] && !this.isJumping) {
+                    if (keys[this.controls.jump] && !this.isJumping && this.stamina >= 10) {
                         this.velocityY = -15;
                         this.isJumping = true;
+                        this.stamina -= 10;
+                    }
+                    
+                    // Block (hold Shift or Space)
+                    if ((keys['shift'] || keys[' ']) && this.blockCooldown === 0 && this.stamina >= 5) {
+                        this.isBlocking = true;
+                        this.stamina -= 0.5;
+                    } else {
+                        this.isBlocking = false;
                     }
                     
                     // Punch
-                    if (keys[this.controls.punch] && this.punchCooldown === 0) {
+                    if (keys[this.controls.punch] && this.punchCooldown === 0 && this.stamina >= 5) {
                         this.punch();
                     }
                     
                     // Kick
-                    if (keys[this.controls.kick] && this.kickCooldown === 0) {
+                    if (keys[this.controls.kick] && this.kickCooldown === 0 && this.stamina >= 10) {
                         this.kick();
                     }
                 }
+                
+                // Stamina regeneration
+                if (this.stamina < this.maxStamina && !this.isBlocking) {
+                    this.stamina += 0.3;
+                }
+                this.stamina = Math.max(0, Math.min(this.maxStamina, this.stamina));
                 
                 // Physics
                 this.velocityY += 0.8; // gravity
@@ -405,18 +435,45 @@
                 // Cooldowns
                 if (this.punchCooldown > 0) this.punchCooldown--;
                 if (this.kickCooldown > 0) this.kickCooldown--;
+                if (this.blockCooldown > 0) this.blockCooldown--;
                 if (this.isPunching && this.punchCooldown === 0) this.isPunching = false;
                 if (this.isKicking && this.kickCooldown === 0) this.isKicking = false;
+                
+                // Reset combo after 2 seconds
+                if (Date.now() - this.lastHitTime > 2000) {
+                    this.combo = 0;
+                }
             }
             
             punch() {
                 this.isPunching = true;
                 this.punchCooldown = 30;
+                this.stamina -= 5;
                 
                 // Check hit on opponent
                 const opponent = localPlayerKey === 'player1' ? players.player2 : players.player1;
                 if (this.checkHit(opponent, 60)) {
-                    opponent.hp -= 10;
+                    // Check if opponent is blocking
+                    if (opponent.isBlocking) {
+                        opponent.hp -= 3; // Reduced damage when blocking
+                        opponent.blockCooldown = 20; // Block cooldown after hit
+                        opponent.isBlocking = false;
+                        this.combo = 0; // Block breaks combo
+                    } else {
+                        // Check for critical hit (10% chance)
+                        const isCrit = Math.random() < 0.1;
+                        const damage = isCrit ? 20 : 10;
+                        opponent.hp -= damage;
+                        
+                        // Combo system
+                        this.combo++;
+                        this.lastHitTime = Date.now();
+                        
+                        // Bonus damage for combo
+                        if (this.combo > 3) {
+                            opponent.hp -= 2; // Bonus damage
+                        }
+                    }
                     sendGameState();
                 }
             }
@@ -424,11 +481,36 @@
             kick() {
                 this.isKicking = true;
                 this.kickCooldown = 45;
+                this.stamina -= 10;
                 
                 // Check hit on opponent
                 const opponent = localPlayerKey === 'player1' ? players.player2 : players.player1;
                 if (this.checkHit(opponent, 80)) {
-                    opponent.hp -= 15;
+                    // Check if opponent is blocking
+                    if (opponent.isBlocking) {
+                        opponent.hp -= 5; // Reduced damage
+                        opponent.blockCooldown = 30;
+                        opponent.isBlocking = false;
+                        // Kick pushes back even when blocking
+                        opponent.velocityX = this.facing * 8;
+                        this.combo = 0;
+                    } else {
+                        // Check for critical hit (15% chance on kick)
+                        const isCrit = Math.random() < 0.15;
+                        const damage = isCrit ? 30 : 15;
+                        opponent.hp -= damage;
+                        
+                        // Kick pushes opponent back
+                        opponent.velocityX = this.facing * 10;
+                        
+                        // Combo system
+                        this.combo++;
+                        this.lastHitTime = Date.now();
+                        
+                        if (this.combo > 3) {
+                            opponent.hp -= 3;
+                        }
+                    }
                     sendGameState();
                 }
             }
@@ -460,6 +542,18 @@
                 ctx.arc(this.x + this.width/2, this.y - 15, 20, 0, Math.PI * 2);
                 ctx.fill();
                 
+                // Block shield
+                if (this.isBlocking) {
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 4;
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width/2, this.y + this.height/2, 55, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+                
                 // Punch animation
                 if (this.isPunching) {
                     ctx.fillStyle = '#ff6b6b';
@@ -472,6 +566,14 @@
                     ctx.fillStyle = '#ffd93d';
                     const kickX = this.x + (this.facing === 1 ? this.width : -60);
                     ctx.fillRect(kickX, this.y + 50, 60, 15);
+                }
+                
+                // Combo indicator
+                if (this.combo > 0) {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.font = 'bold 20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${this.combo}x COMBO!`, this.x + this.width/2, this.y - 40);
                 }
                 
                 ctx.restore();
@@ -516,8 +618,23 @@
                     config: {
                         iceServers: [
                             { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:global.stun.twilio.com:3478' }
-                        ]
+                            { urls: 'stun:global.stun.twilio.com:3478' },
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                            { urls: 'stun:stun2.l.google.com:19302' },
+                            // Free TURN servers (relay)
+                            {
+                                urls: 'turn:openrelay.metered.ca:80',
+                                username: 'openrelayproject',
+                                credential: 'openrelayproject'
+                            },
+                            {
+                                urls: 'turn:openrelay.metered.ca:443',
+                                username: 'openrelayproject',
+                                credential: 'openrelayproject'
+                            }
+                        ],
+                        iceTransportPolicy: 'all', // Try all methods
+                        iceCandidatePoolSize: 10
                     },
                     debug: 2
                 });
@@ -573,8 +690,23 @@
                     config: {
                         iceServers: [
                             { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:global.stun.twilio.com:3478' }
-                        ]
+                            { urls: 'stun:global.stun.twilio.com:3478' },
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                            { urls: 'stun:stun2.l.google.com:19302' },
+                            // Free TURN servers (relay)
+                            {
+                                urls: 'turn:openrelay.metered.ca:80',
+                                username: 'openrelayproject',
+                                credential: 'openrelayproject'
+                            },
+                            {
+                                urls: 'turn:openrelay.metered.ca:443',
+                                username: 'openrelayproject',
+                                credential: 'openrelayproject'
+                            }
+                        ],
+                        iceTransportPolicy: 'all',
+                        iceCandidatePoolSize: 10
                     },
                     debug: 2
                 });
@@ -701,9 +833,12 @@
                     opponent.velocityX = data.velocityX;
                     opponent.velocityY = data.velocityY;
                     opponent.hp = data.hp;
+                    opponent.stamina = data.stamina;
                     opponent.isPunching = data.isPunching;
                     opponent.isKicking = data.isKicking;
+                    opponent.isBlocking = data.isBlocking;
                     opponent.facing = data.facing;
+                    opponent.combo = data.combo;
                 }
                 updateStats();
             } else if (data.type === 'gameOver') {
@@ -724,9 +859,12 @@
                 velocityX: localPlayer.velocityX,
                 velocityY: localPlayer.velocityY,
                 hp: localPlayer.hp,
+                stamina: localPlayer.stamina,
                 isPunching: localPlayer.isPunching,
                 isKicking: localPlayer.isKicking,
-                facing: localPlayer.facing
+                isBlocking: localPlayer.isBlocking,
+                facing: localPlayer.facing,
+                combo: localPlayer.combo
             });
             
             // Check game over
@@ -827,10 +965,15 @@
                 
                 const prefix = i === 0 ? 'p1' : 'p2';
                 const hpPercent = Math.max(0, (player.hp / player.maxHp) * 100);
+                const staminaPercent = Math.max(0, (player.stamina / player.maxStamina) * 100);
                 
                 document.getElementById(`${prefix}Hp`).style.width = hpPercent + '%';
                 document.getElementById(`${prefix}HpText`).textContent = 
                     `HP: ${Math.max(0, Math.floor(player.hp))}/${player.maxHp}`;
+                
+                document.getElementById(`${prefix}Stamina`).style.width = staminaPercent + '%';
+                document.getElementById(`${prefix}StaminaText`).textContent = 
+                    `Stamina: ${Math.floor(player.stamina)}`;
             });
         }
         
@@ -846,11 +989,15 @@
             // Reset players
             if (players.player1) {
                 players.player1.hp = 100;
+                players.player1.stamina = 100;
+                players.player1.combo = 0;
                 players.player1.x = 100;
                 players.player1.y = 200;
             }
             if (players.player2) {
                 players.player2.hp = 100;
+                players.player2.stamina = 100;
+                players.player2.combo = 0;
                 players.player2.x = 750;
                 players.player2.y = 200;
             }

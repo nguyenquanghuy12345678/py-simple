@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥊 Boxing Online - PvP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial Black', sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            text-align: center;
+            position: relative;
+        }
+        
+        canvas {
+            border: 5px solid #ffd700;
+            border-radius: 10px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.8);
+        }
+        
+        /* HUD */
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+        
+        .player-stats {
+            background: rgba(0,0,0,0.85);
+            padding: 15px;
+            border-radius: 10px;
+            flex: 1;
+            border: 3px solid;
+        }
+        
+        .player1-stats { border-color: #4a90e2; }
+        .player2-stats { border-color: #e74c3c; }
+        
+        .player-name {
+            font-size: 18px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            color: #ffd700;
+        }
+        
+        .hp-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border: 2px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        
+        .hp-fill {
+            height: 100%;
+            transition: width 0.3s;
+            background: linear-gradient(to right, #2ecc71, #27ae60);
+        }
+        
+        .stat-text {
+            color: white;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px black;
+        }
+        
+        .controls {
+            color: #95a5a6;
+            font-size: 10px;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+        
+        .back-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.8);
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            color: #ffd700;
+            text-decoration: none;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .back-button:hover {
+            background: #ffd700;
+            color: #000;
+            transform: scale(1.1);
+        }
+        
+        /* GAME OVER */
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 50px 70px;
+            border-radius: 20px;
+            border: 5px solid #ffd700;
+            display: none;
+            z-index: 2000;
+            text-align: center;
+        }
+        
+        .game-over h1 {
+            font-size: 56px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+        }
+        
+        .winner1 { color: #4a90e2; }
+        .winner2 { color: #e74c3c; }
+        
+        .game-over button {
+            margin: 10px;
+            padding: 20px 40px;
+            font-size: 20px;
+            background: linear-gradient(to right, #ffd700, #ffed4e);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .game-over button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 10px 30px rgba(255,215,0,0.6);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <a href="index.html" class="back-button">← MENU</a>
+        
+        <div class="hud">
+            <div class="player-stats player1-stats">
+                <div class="player-name">🥊 PLAYER 1</div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="p1Hp" style="width: 100%"></div>
+                </div>
+                <div class="stat-text" id="p1HpText">HP: 100/100</div>
+                <div class="controls">
+                    WASD: Di chuyển | F: Đấm | G: Chặn
+                </div>
+            </div>
+            
+            <div class="player-stats player2-stats">
+                <div class="player-name">🥊 PLAYER 2</div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="p2Hp" style="width: 100%"></div>
+                </div>
+                <div class="stat-text" id="p2HpText">HP: 100/100</div>
+                <div class="controls">
+                    ↑←↓→: Di chuyển | / : Đấm | . : Chặn
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" width="900" height="500"></canvas>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+        <h1 id="winnerText">PLAYER 1 WINS!</h1>
+        <button onclick="location.reload()">🔄 CHƠI LẠI</button>
+        <button onclick="location.href='index.html'">🏠 MENU</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameRunning = true;
+        let keys = {};
+        
+        class Fighter {
+            constructor(x, color, controls, name) {
+                this.x = x;
+                this.y = canvas.height - 100;
+                this.width = 40;
+                this.height = 80;
+                this.color = color;
+                this.hp = 100;
+                this.maxHp = 100;
+                this.velocityX = 0;
+                this.velocityY = 0;
+                this.speed = 5;
+                this.jumpPower = 15;
+                this.onGround = true;
+                this.facingRight = name === 'p2';
+                this.controls = controls;
+                this.name = name;
+                
+                this.isPunching = false;
+                this.isBlocking = false;
+                this.punchCooldown = 0;
+                this.hitFlash = 0;
+            }
+            
+            update() {
+                if (keys[this.controls.left]) {
+                    this.velocityX = -this.speed;
+                    this.facingRight = false;
+                }
+                if (keys[this.controls.right]) {
+                    this.velocityX = this.speed;
+                    this.facingRight = true;
+                }
+                if (keys[this.controls.up] && this.onGround) {
+                    this.velocityY = -this.jumpPower;
+                    this.onGround = false;
+                }
+                
+                if (keys[this.controls.punch] && this.punchCooldown === 0) {
+                    this.punch();
+                }
+                
+                this.isBlocking = keys[this.controls.block] && this.onGround;
+                
+                this.velocityY += 0.8;
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+                this.velocityX *= 0.8;
+                
+                this.x = Math.max(0, Math.min(this.x, canvas.width - this.width));
+                if (this.y > canvas.height - 100) {
+                    this.y = canvas.height - 100;
+                    this.velocityY = 0;
+                    this.onGround = true;
+                }
+                
+                if (this.punchCooldown > 0) this.punchCooldown--;
+                if (this.hitFlash > 0) this.hitFlash--;
+            }
+            
+            punch() {
+                this.isPunching = true;
+                this.punchCooldown = 20;
+                setTimeout(() => this.isPunching = false, 200);
+            }
+            
+            takeDamage(amount) {
+                if (this.isBlocking) amount *= 0.3;
+                
+                this.hp -= amount;
+                this.hitFlash = 10;
+                
+                if (this.hp <= 0) {
+                    this.hp = 0;
+                    endGame(this.name === 'p1' ? 'p2' : 'p1');
+                }
+                
+                updateStats();
+            }
+            
+            draw() {
+                ctx.save();
+                
+                if (this.hitFlash > 0) {
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(this.x - 5, this.y - 5, this.width + 10, this.height + 10);
+                    ctx.globalAlpha = 1;
+                }
+                
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.fillStyle = '#ffdbac';
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2, this.y - 10, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(this.x + 13, this.y - 10, 2, 0, Math.PI * 2);
+                ctx.arc(this.x + 23, this.y - 10, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#ff0000';
+                if (this.isPunching) {
+                    const punchOffset = this.facingRight ? 50 : -50;
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width/2 + punchOffset, this.y + 20, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = 'yellow';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width/2 + punchOffset, this.y + 20, 20, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(this.x + (this.facingRight ? this.width - 5 : 5), this.y + 30, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                if (this.isBlocking) {
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width/2, this.y + this.height/2, 50, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            }
+        }
+        
+        const player1 = new Fighter(100, '#4a90e2', {
+            left: 'a', right: 'd', up: 'w', punch: 'f', block: 'g'
+        }, 'p1');
+        
+        const player2 = new Fighter(750, '#e74c3c', {
+            left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', 
+            punch: '/', block: '.'
+        }, 'p2');
+        
+        function updateStats() {
+            [player1, player2].forEach((player, i) => {
+                const prefix = i === 0 ? 'p1' : 'p2';
+                const hpPercent = (player.hp / player.maxHp) * 100;
+                
+                document.getElementById(`${prefix}Hp`).style.width = hpPercent + '%';
+                document.getElementById(`${prefix}HpText`).textContent = 
+                    `HP: ${Math.floor(player.hp)}/${player.maxHp}`;
+            });
+        }
+        
+        function checkPunchCollision(attacker, defender) {
+            if (!attacker.isPunching || attacker.punchCooldown > 10) return;
+            
+            const distance = Math.abs(attacker.x - defender.x);
+            const yDistance = Math.abs(attacker.y - defender.y);
+            
+            if (distance < 60 && yDistance < 50) {
+                defender.takeDamage(8);
+            }
+        }
+        
+        function endGame(winner) {
+            gameRunning = false;
+            const winnerText = document.getElementById('winnerText');
+            winnerText.textContent = winner === 'p1' ? '🥊 PLAYER 1 WINS! 🥊' : '🥊 PLAYER 2 WINS! 🥊';
+            winnerText.className = winner === 'p1' ? 'winner1' : 'winner2';
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+            
+            player1.update();
+            player2.update();
+            
+            checkPunchCollision(player1, player2);
+            checkPunchCollision(player2, player1);
+            
+            player1.draw();
+            player2.draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            keys[e.key] = false;
+        });
+        
+        updateStats();
+        gameLoop();
+    </script>
+</body>
+</html>

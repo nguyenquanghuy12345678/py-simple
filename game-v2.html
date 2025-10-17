@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚗 Tránh Vật Cản</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Consolas', monospace;
+        }
+        
+        #gameContainer {
+            text-align: center;
+        }
+        
+        canvas {
+            border: 4px solid #fff;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            background: #282828;
+        }
+        
+        #score {
+            color: white;
+            font-size: 24px;
+            margin-top: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        #instructions {
+            color: white;
+            margin-top: 15px;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            color: white;
+            display: none;
+        }
+        
+        .game-over h1 {
+            color: #ff4444;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .game-over p {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        
+        .game-over button {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 18px;
+            background: #00ff88;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .game-over button:hover {
+            background: #00cc6a;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <div id="score">Score: 0</div>
+        <div id="instructions">
+            ⬅️ A / Mũi tên trái | ➡️ D / Mũi tên phải
+        </div>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+        <h1>💥 GAME OVER 💥</h1>
+        <p id="finalScore">Final Score: 0</p>
+        <button onclick="restartGame()">🔄 Chơi Lại</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDiv = document.getElementById('gameOver');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        
+        // Game variables
+        let player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 40,
+            width: 50,
+            height: 30,
+            speed: 7
+        };
+        
+        let obstacles = [];
+        let score = 0;
+        let gameRunning = true;
+        let obstacleSpeed = 4;
+        let keys = {};
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Draw player
+        function drawPlayer() {
+            ctx.fillStyle = '#0096ff';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Car details
+            ctx.fillStyle = '#005599';
+            ctx.fillRect(player.x + 10, player.y + 5, 30, 10);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(player.x + 5, player.y + 20, 10, 8);
+            ctx.fillRect(player.x + 35, player.y + 20, 10, 8);
+        }
+        
+        // Draw obstacles
+        function drawObstacles() {
+            ctx.fillStyle = '#ff4444';
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                ctx.fillStyle = '#cc0000';
+                ctx.fillRect(obs.x + 5, obs.y + 3, obs.width - 10, obs.height - 6);
+                ctx.fillStyle = '#ff4444';
+            });
+        }
+        
+        // Create obstacle
+        function createObstacle() {
+            if (Math.random() < 0.02) {
+                obstacles.push({
+                    x: Math.random() * (canvas.width - 40),
+                    y: 0,
+                    width: 40,
+                    height: 20
+                });
+            }
+        }
+        
+        // Update obstacles
+        function updateObstacles() {
+            obstacles.forEach((obs, index) => {
+                obs.y += obstacleSpeed;
+                
+                // Remove off-screen obstacles
+                if (obs.y > canvas.height) {
+                    obstacles.splice(index, 1);
+                    score++;
+                    scoreDisplay.textContent = `Score: ${score}`;
+                    
+                    // Increase difficulty
+                    if (score % 10 === 0 && obstacleSpeed < 8) {
+                        obstacleSpeed += 0.5;
+                    }
+                }
+            });
+        }
+        
+        // Check collision
+        function checkCollision() {
+            for (let obs of obstacles) {
+                if (player.x < obs.x + obs.width &&
+                    player.x + player.width > obs.x &&
+                    player.y < obs.y + obs.height &&
+                    player.y + player.height > obs.y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Move player
+        function movePlayer() {
+            if ((keys['ArrowLeft'] || keys['a'] || keys['A']) && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if ((keys['ArrowRight'] || keys['d'] || keys['D']) && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            finalScoreDisplay.textContent = `Final Score: ${score}`;
+            gameOverDiv.style.display = 'block';
+        }
+        
+        // Restart game
+        function restartGame() {
+            player.x = canvas.width / 2 - 25;
+            obstacles = [];
+            score = 0;
+            obstacleSpeed = 4;
+            gameRunning = true;
+            gameOverDiv.style.display = 'none';
+            scoreDisplay.textContent = 'Score: 0';
+            gameLoop();
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Clear canvas
+            ctx.fillStyle = '#282828';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw road lines
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([20, 15]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 3, 0);
+            ctx.lineTo(canvas.width / 3, canvas.height);
+            ctx.moveTo(2 * canvas.width / 3, 0);
+            ctx.lineTo(2 * canvas.width / 3, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            createObstacle();
+            updateObstacles();
+            movePlayer();
+            
+            if (checkCollision()) {
+                gameOver();
+                return;
+            }
+            
+            drawObstacles();
+            drawPlayer();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start game
+        gameLoop();
+    </script>
+</body>
+</html>

@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥊 Boxing Ultimate - Skills & Maps Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial Black', sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            text-align: center;
+            position: relative;
+        }
+        
+        canvas {
+            border: 5px solid #ffd700;
+            border-radius: 10px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.5);
+        }
+        
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            gap: 20px;
+        }
+        
+        .player-stats {
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 10px;
+            flex: 1;
+            border: 3px solid;
+        }
+        
+        .player1-stats { border-color: #4a90e2; }
+        .player2-stats { border-color: #e74c3c; }
+        
+        .player-name {
+            font-size: 20px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        
+        .player1-stats .player-name { color: #4a90e2; }
+        .player2-stats .player-name { color: #e74c3c; }
+        
+        .hp-bar, .energy-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border: 2px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        
+        .hp-fill {
+            height: 100%;
+            transition: width 0.3s;
+            background: linear-gradient(to right, #2ecc71, #27ae60);
+        }
+        
+        .energy-fill {
+            height: 100%;
+            transition: width 0.3s;
+            background: linear-gradient(to right, #3498db, #2980b9);
+        }
+        
+        .stat-text {
+            color: white;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px black;
+        }
+        
+        .skills-container {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .skill-btn {
+            background: linear-gradient(to bottom, #3498db, #2980b9);
+            border: 2px solid #ffd700;
+            border-radius: 5px;
+            padding: 5px 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .skill-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(255,215,0,0.5);
+        }
+        
+        .skill-btn.cooldown {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .map-selector {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .map-btn {
+            background: linear-gradient(to bottom, #9b59b6, #8e44ad);
+            border: 2px solid #ffd700;
+            border-radius: 5px;
+            padding: 8px 12px;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .map-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 5px 20px rgba(155,89,182,0.8);
+        }
+        
+        .map-btn.active {
+            background: linear-gradient(to bottom, #ffd700, #f39c12);
+            color: #000;
+        }
+        
+        .controls-help {
+            color: #ffd700;
+            font-size: 11px;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div class="map-selector" id="mapSelector">
+            <!-- Maps will be added dynamically -->
+        </div>
+        
+        <div class="hud">
+            <div class="player-stats player1-stats">
+                <div class="player-name">🥊 PLAYER 1</div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="p1-hp" style="width: 100%"></div>
+                </div>
+                <div class="stat-text" id="p1-hp-text">HP: 100/100</div>
+                
+                <div class="energy-bar">
+                    <div class="energy-fill" id="p1-energy" style="width: 100%"></div>
+                </div>
+                <div class="stat-text" id="p1-energy-text">Energy: 100/100</div>
+                
+                <div class="skills-container" id="p1-skills">
+                    <!-- Skills will be added dynamically -->
+                </div>
+                
+                <div class="controls-help">
+                    WASD: Di chuyển | F: Đấm | G: Phòng thủ<br>
+                    Skills: 1=Uppercut, 2=Combo, 3=Shield, 4=Dash
+                </div>
+            </div>
+            
+            <div class="player-stats player2-stats">
+                <div class="player-name">PLAYER 2 🥊</div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="p2-hp" style="width: 100%"></div>
+                </div>
+                <div class="stat-text" id="p2-hp-text">HP: 100/100</div>
+                
+                <div class="energy-bar">
+                    <div class="energy-fill" id="p2-energy" style="width: 100%"></div>
+                </div>
+                <div class="stat-text" id="p2-energy-text">Energy: 100/100</div>
+                
+                <div class="skills-container" id="p2-skills">
+                    <!-- Skills will be added dynamically -->
+                </div>
+                
+                <div class="controls-help">
+                    ↑←↓→: Di chuyển | Num1: Đấm | Num2: Phòng thủ<br>
+                    Skills: Num4=Uppercut, Num5=Combo, Num6=Shield, Num7=Dash
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" width="900" height="500"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameRunning = true;
+        let keys = {};
+        let currentMap = 'classic';
+        
+        // MAPS SYSTEM
+        const MAPS = {
+            classic: {
+                name: 'Classic Ring',
+                icon: '🥊',
+                draw: function() {
+                    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    gradient.addColorStop(0, '#1a1a2e');
+                    gradient.addColorStop(1, '#16213e');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 5;
+                    [100, 200].forEach(y => {
+                        ctx.beginPath();
+                        ctx.moveTo(0, y);
+                        ctx.lineTo(canvas.width, y);
+                        ctx.stroke();
+                    });
+                    
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+                }
+            },
+            
+            neon: {
+                name: 'Neon Arena',
+                icon: '🌃',
+                draw: function() {
+                    ctx.fillStyle = '#0a0a1a';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#00ffff';
+                    
+                    for (let i = 0; i < canvas.width; i += 40) {
+                        ctx.globalAlpha = 0.3 + Math.sin(Date.now() / 500 + i) * 0.2;
+                        ctx.beginPath();
+                        ctx.moveTo(i, canvas.height - 100);
+                        ctx.lineTo(i, canvas.height);
+                        ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1;
+                    ctx.shadowBlur = 0;
+                }
+            },
+            
+            volcano: {
+                name: 'Volcano',
+                icon: '🌋',
+                draw: function() {
+                    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    gradient.addColorStop(0, '#1a0000');
+                    gradient.addColorStop(1, '#4a1a00');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.fillStyle = '#ff4400';
+                    ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+                    
+                    for (let i = 0; i < 10; i++) {
+                        const x = (i * 60 + Date.now() / 20) % canvas.width;
+                        const y = canvas.height - 100 - ((Date.now() / 10 + i * 30) % 200);
+                        ctx.fillText('🔥', x, y);
+                    }
+                }
+            },
+            
+            space: {
+                name: 'Space Station',
+                icon: '🚀',
+                draw: function() {
+                    ctx.fillStyle = '#000033';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.fillStyle = '#ffffff';
+                    for (let i = 0; i < 80; i++) {
+                        const x = (i * 73) % canvas.width;
+                        const y = (i * 97) % canvas.height;
+                        ctx.fillRect(x, y, 2, 2);
+                    }
+                    
+                    ctx.fillStyle = '#1a1a4a';
+                    ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+                }
+            }
+        };
+        
+        // Create map buttons
+        Object.keys(MAPS).forEach(mapId => {
+            const btn = document.createElement('button');
+            btn.className = 'map-btn';
+            btn.textContent = MAPS[mapId].icon;
+            btn.title = MAPS[mapId].name;
+            btn.onclick = () => {
+                currentMap = mapId;
+                document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            };
+            if (mapId === 'classic') btn.classList.add('active');
+            document.getElementById('mapSelector').appendChild(btn);
+        });
+        
+        // SKILLS SYSTEM
+        const SKILLS = {
+            uppercut: {
+                name: 'Uppercut',
+                icon: '⬆️',
+                damage: 20,
+                energyCost: 30,
+                cooldown: 180,
+                effect: function(attacker, defender) {
+                    if (defender) {
+                        defender.velocityY = -18;
+                        defender.stunned = true;
+                        defender.stunnedTime = 45;
+                        defender.takeDamage(this.damage, attacker);
+                    }
+                    
+                    // Visual
+                    ctx.save();
+                    ctx.strokeStyle = '#ff9900';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(attacker.x + 20, attacker.y + 40, 30, Math.PI, 0);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            },
+            
+            comboRush: {
+                name: 'Combo Rush',
+                icon: '💥',
+                damage: 8,
+                energyCost: 40,
+                cooldown: 200,
+                effect: function(attacker, defender) {
+                    let hits = 0;
+                    const rushInterval = setInterval(() => {
+                        if (hits++ >= 5) return clearInterval(rushInterval);
+                        if (defender && !defender.isBlocking) {
+                            defender.takeDamage(this.damage, attacker);
+                        }
+                    }, 100);
+                }
+            },
+            
+            counterShield: {
+                name: 'Counter Shield',
+                icon: '🛡️',
+                energyCost: 35,
+                cooldown: 240,
+                effect: function(attacker) {
+                    attacker.counterShieldActive = true;
+                    attacker.counterShieldTime = 90;
+                }
+            },
+            
+            lightningDash: {
+                name: 'Lightning Dash',
+                icon: '⚡',
+                damage: 15,
+                energyCost: 25,
+                cooldown: 150,
+                effect: function(attacker, defender) {
+                    const direction = attacker.facingRight ? 1 : -1;
+                    attacker.x = Math.max(0, Math.min(attacker.x + (150 * direction), 900 - attacker.width));
+                    
+                    if (defender) {
+                        const distance = Math.abs(attacker.x - defender.x);
+                        if (distance < 60) {
+                            defender.takeDamage(this.damage, attacker);
+                            defender.velocityX = direction * 8;
+                        }
+                    }
+                }
+            }
+        };
+        
+        class Fighter {
+            constructor(x, color, controls, name, skillKeys) {
+                this.x = x;
+                this.y = canvas.height - 100;
+                this.width = 40;
+                this.height = 80;
+                this.color = color;
+                this.hp = 100;
+                this.maxHp = 100;
+                this.energy = 100;
+                this.maxEnergy = 100;
+                this.velocityX = 0;
+                this.velocityY = 0;
+                this.speed = 5;
+                this.jumpPower = 15;
+                this.onGround = true;
+                this.facingRight = name === 'p2';
+                this.controls = controls;
+                this.name = name;
+                this.skillKeys = skillKeys;
+                
+                this.isPunching = false;
+                this.isBlocking = false;
+                this.punchCooldown = 0;
+                this.stunned = false;
+                this.stunnedTime = 0;
+                this.combo = 0;
+                this.hitFlash = 0;
+                
+                this.skillCooldowns = {};
+                this.counterShieldActive = false;
+                this.counterShieldTime = 0;
+                
+                Object.keys(SKILLS).forEach(key => {
+                    this.skillCooldowns[key] = 0;
+                });
+            }
+            
+            update() {
+                // Energy regen
+                if (this.energy < this.maxEnergy) {
+                    this.energy += 0.1;
+                }
+                
+                // Cooldowns
+                Object.keys(this.skillCooldowns).forEach(key => {
+                    if (this.skillCooldowns[key] > 0) this.skillCooldowns[key]--;
+                });
+                
+                if (this.counterShieldTime > 0) this.counterShieldTime--;
+                else this.counterShieldActive = false;
+                
+                if (this.stunned) {
+                    this.stunnedTime--;
+                    if (this.stunnedTime <= 0) this.stunned = false;
+                    return;
+                }
+                
+                // Movement
+                if (keys[this.controls.left]) {
+                    this.velocityX = -this.speed;
+                    this.facingRight = false;
+                }
+                if (keys[this.controls.right]) {
+                    this.velocityX = this.speed;
+                    this.facingRight = true;
+                }
+                if (keys[this.controls.up] && this.onGround) {
+                    this.velocityY = -this.jumpPower;
+                    this.onGround = false;
+                }
+                
+                if (keys[this.controls.punch] && this.punchCooldown === 0) {
+                    this.punch();
+                }
+                
+                this.isBlocking = keys[this.controls.block];
+                
+                // Skills
+                Object.keys(this.skillKeys).forEach(skillName => {
+                    const key = this.skillKeys[skillName];
+                    if (keys[key] && this.skillCooldowns[skillName] === 0) {
+                        this.useSkill(skillName);
+                    }
+                });
+                
+                // Physics
+                this.velocityY += 0.8;
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+                this.velocityX *= 0.8;
+                
+                // Boundaries
+                this.x = Math.max(0, Math.min(this.x, canvas.width - this.width));
+                if (this.y > canvas.height - 100) {
+                    this.y = canvas.height - 100;
+                    this.velocityY = 0;
+                    this.onGround = true;
+                }
+                
+                if (this.punchCooldown > 0) this.punchCooldown--;
+                if (this.hitFlash > 0) this.hitFlash--;
+            }
+            
+            punch() {
+                this.isPunching = true;
+                this.punchCooldown = 20;
+                setTimeout(() => this.isPunching = false, 200);
+            }
+            
+            useSkill(skillName) {
+                const skill = SKILLS[skillName];
+                if (!skill || this.energy < skill.energyCost) return;
+                
+                this.energy -= skill.energyCost;
+                this.skillCooldowns[skillName] = skill.cooldown;
+                
+                const opponent = this === player1 ? player2 : player1;
+                skill.effect.call(skill, this, opponent);
+            }
+            
+            takeDamage(amount, attacker) {
+                if (this.isBlocking) amount *= 0.3;
+                else if (this.counterShieldActive) {
+                    attacker.takeDamage(amount * 0.5, this);
+                    return;
+                }
+                
+                this.hp -= amount;
+                this.hitFlash = 10;
+                if (this.hp <= 0) {
+                    this.hp = 0;
+                    endGame(attacker.name);
+                }
+                updateStats();
+            }
+            
+            draw() {
+                ctx.save();
+                
+                if (this.hitFlash > 0) {
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(this.x - 5, this.y - 5, this.width + 10, this.height + 10);
+                    ctx.globalAlpha = 1;
+                }
+                
+                // Body
+                ctx.fillStyle = this.stunned ? '#888' : this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Head
+                ctx.fillStyle = '#ffdbac';
+                ctx.beginPath();
+                ctx.arc(this.x + this.width/2, this.y - 10, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Gloves
+                ctx.fillStyle = '#ff0000';
+                if (this.isPunching) {
+                    const punchOffset = this.facingRight ? 50 : -50;
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width/2 + punchOffset, this.y + 20, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Counter shield
+                if (this.counterShieldActive) {
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width/2, this.y + this.height/2, 50, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            }
+        }
+        
+        const player1 = new Fighter(100, '#4a90e2', {
+            left: 'a', right: 'd', up: 'w', punch: 'f', block: 'g'
+        }, 'p1', {
+            uppercut: '1',
+            comboRush: '2',
+            counterShield: '3',
+            lightningDash: '4'
+        });
+        
+        const player2 = new Fighter(750, '#e74c3c', {
+            left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', punch: 'End', block: 'PageDown'
+        }, 'p2', {
+            uppercut: 'Clear',
+            comboRush: '5',
+            counterShield: 'Home',
+            lightningDash: '7'
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            keys[e.key] = false;
+        });
+        
+        function checkPunchCollision(attacker, defender) {
+            if (!attacker.isPunching || attacker.punchCooldown > 10) return;
+            
+            const distance = Math.abs(attacker.x - defender.x);
+            if (distance < 60) {
+                defender.takeDamage(8, attacker);
+            }
+        }
+        
+        function updateStats() {
+            ['p1', 'p2'].forEach((p, i) => {
+                const player = i === 0 ? player1 : player2;
+                const hpPercent = (player.hp / player.maxHp) * 100;
+                const energyPercent = (player.energy / player.maxEnergy) * 100;
+                
+                document.getElementById(`${p}-hp`).style.width = hpPercent + '%';
+                document.getElementById(`${p}-energy`).style.width = energyPercent + '%';
+                document.getElementById(`${p}-hp-text`).textContent = `HP: ${Math.floor(player.hp)}/${player.maxHp}`;
+                document.getElementById(`${p}-energy-text`).textContent = `Energy: ${Math.floor(player.energy)}/${player.maxEnergy}`;
+            });
+        }
+        
+        function endGame(winner) {
+            gameRunning = false;
+            setTimeout(() => {
+                alert(winner === 'p1' ? '🥊 PLAYER 1 WINS! 🥊' : '🥊 PLAYER 2 WINS! 🥊');
+                location.reload();
+            }, 100);
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Draw map
+            MAPS[currentMap].draw();
+            
+            player1.update();
+            player2.update();
+            
+            checkPunchCollision(player1, player2);
+            checkPunchCollision(player2, player1);
+            
+            player1.draw();
+            player2.draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        updateStats();
+        gameLoop();
+    </script>
+</body>
+</html>

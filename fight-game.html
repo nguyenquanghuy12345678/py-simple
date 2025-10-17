@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>🔥 Mini Fight Arena - 2 Player</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(to bottom, #1a1a1a, #333);
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; color: white; font-family: Consolas;
+    }
+    canvas {
+      border: 3px solid #fff;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="900" height="500"></canvas>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const PLAYER_WIDTH = 60, PLAYER_HEIGHT = 80;
+    const SPEED = 6;
+    const ATTACK_RANGE = 60;
+    const MAX_HEALTH = 5;
+
+    const player1 = {
+      x: 100, y: canvas.height / 2 - 40,
+      color: "deepskyblue",
+      health: MAX_HEALTH,
+      keys: { left: "a", right: "d", up: "w", down: "s", attack: "f" },
+      cooldown: 0
+    };
+
+    const player2 = {
+      x: canvas.width - 160, y: canvas.height / 2 - 40,
+      color: "tomato",
+      health: MAX_HEALTH,
+      keys: { left: "ArrowLeft", right: "ArrowRight", up: "ArrowUp", down: "ArrowDown", attack: "k" },
+      cooldown: 0
+    };
+
+    const keys = {};
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    function move(p) {
+      if (keys[p.keys.left] && p.x > 0) p.x -= SPEED;
+      if (keys[p.keys.right] && p.x + PLAYER_WIDTH < canvas.width) p.x += SPEED;
+      if (keys[p.keys.up] && p.y > 0) p.y -= SPEED;
+      if (keys[p.keys.down] && p.y + PLAYER_HEIGHT < canvas.height) p.y += SPEED;
+    }
+
+    function attack(attacker, defender, direction) {
+      if (attacker.cooldown > 0) return;
+      let rangeX = direction === "right" ? attacker.x + PLAYER_WIDTH : attacker.x - ATTACK_RANGE;
+      if (
+        defender.x < rangeX + ATTACK_RANGE &&
+        defender.x + PLAYER_WIDTH > rangeX &&
+        defender.y < attacker.y + PLAYER_HEIGHT &&
+        defender.y + PLAYER_HEIGHT > attacker.y
+      ) {
+        defender.health--;
+      }
+      attacker.cooldown = 30;
+    }
+
+    function drawPlayer(p) {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+      // Thanh máu
+      for (let i = 0; i < p.health; i++) {
+        ctx.fillStyle = "lime";
+        ctx.fillRect(p.x + i * 12, p.y - 12, 10, 10);
+      }
+    }
+
+    function drawText(text, x, y, color = "white") {
+      ctx.fillStyle = color;
+      ctx.font = "20px Consolas";
+      ctx.fillText(text, x, y);
+    }
+
+    function gameOver(winner) {
+      ctx.fillStyle = "rgba(0,0,0,0.8)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "yellow";
+      ctx.font = "40px Consolas";
+      ctx.fillText(winner + " WINS!", canvas.width / 2 - 120, canvas.height / 2);
+      ctx.font = "20px Consolas";
+      ctx.fillText("Nhấn R để chơi lại", canvas.width / 2 - 100, canvas.height / 2 + 40);
+    }
+
+    function reset() {
+      player1.x = 100; player1.y = canvas.height / 2 - 40; player1.health = MAX_HEALTH;
+      player2.x = canvas.width - 160; player2.y = canvas.height / 2 - 40; player2.health = MAX_HEALTH;
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key.toLowerCase() === "r") reset();
+    });
+
+    function update() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      move(player1);
+      move(player2);
+
+      if (keys[player1.keys.attack]) attack(player1, player2, "right");
+      if (keys[player2.keys.attack]) attack(player2, player1, "left");
+
+      if (player1.cooldown > 0) player1.cooldown--;
+      if (player2.cooldown > 0) player2.cooldown--;
+
+      drawPlayer(player1);
+      drawPlayer(player2);
+
+      drawText("P1 HP: " + player1.health, 20, 30, "deepskyblue");
+      drawText("P2 HP: " + player2.health, canvas.width - 140, 30, "tomato");
+
+      if (player1.health <= 0) {
+        gameOver("Player 2");
+        return;
+      }
+      if (player2.health <= 0) {
+        gameOver("Player 1");
+        return;
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    update();
+  </script>
+</body>
+</html>
